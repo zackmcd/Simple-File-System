@@ -151,7 +151,7 @@ int fs_create(const char *filename)
     return -1;
 
   //if length of filename is too long
-  if((strlen(filename) + 1) > FS_FILENAME_LEN) // + 1 is for the '\0'
+  if(sizeof(filename) > FS_FILENAME_LEN) // uses sizeof to add + 1 for the '\0'
     return -1;
 
   //if file name already exists in file directory
@@ -185,7 +185,7 @@ int fs_delete(const char *filename)
     return -1;
 
   //if length of filename is too long
-  if((strlen(filename) + 1) > FS_FILENAME_LEN) // + 1 is for the '\0'
+  if(sizeof(filename) > FS_FILENAME_LEN) // uses sizeif to add + 1 for the '\0'
     return -1;
   
   //no file in root directory to delete
@@ -207,6 +207,8 @@ int fs_delete(const char *filename)
 	fat.blocks[dataSpot].word = 0;
 	dataSpot = next;
       }
+
+      rootDir[i].name[0] = 0; // this clears the name from the root directory
 
       break;
     }
