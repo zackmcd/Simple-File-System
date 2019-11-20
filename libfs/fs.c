@@ -138,7 +138,7 @@ int findFileInRootDirec(const char *filename)
   for(int i = 0; i < FS_FILE_MAX_COUNT; i++)
   {
     if(strcmp(rootDir[i].name, filename) == 0)
-      return 0; 
+      return i; 
   }
 
   return -1;
@@ -155,7 +155,7 @@ int fs_create(const char *filename)
     return -1;
 
   //if file name already exists in file directory
-  if(findFileInRootDirec(filename) == 0)
+  if(findFileInRootDirec(filename) != -1)
     return -1;
 
   //find empty entry in root directory
