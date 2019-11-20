@@ -1,25 +1,23 @@
 # Target library
-lib     := libfs.a
-objs    := disk.o fs.o
+lib  := libfs.a
+objs := disk.o fs.o
 
-CC      := gcc
-CFLAGS  := -Wall -Werror
-
-AA      := ar
-AFLAGS  := -crs
+CC   := gcc 
+CFLAGS := -Wall -Werror
+CFLAGS += -g
 
 ifneq ($(V),1)
 Q = @
 endif
 
-#all : $(lib)
+all: $(lib)
 
 # Dep tracking *must* be below the 'all' rule
 deps := $(patsubst %.o,%.d,$(objs))
 -include $(deps)
 DEPFLAGS = -MMD -MF $(@:.o=.d)
 
-libuthread.a : $(objs)
+libfs.a : $(objs)
 	@echo "CC $@"
 	$(Q)$(AA) $(AFLAGS) $(lib) $(objs)
 
@@ -29,4 +27,4 @@ libuthread.a : $(objs)
 
 clean :
 	@echo "clean"
-	$(Q)rm -f $(lib) $(objs) $(deps)
+	$(Q)rm -f $(lib) $(del) $(deps)
