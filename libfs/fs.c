@@ -7,6 +7,8 @@
 #include "disk.h"
 #include "fs.h"
 
+#define FAT_EOC 0xFFFF
+
 int findFileInRootDirec(const char *filename);
 
 typedef struct __attribute__ ((__packed__)) SuperBlock
@@ -46,18 +48,20 @@ typedef struct FDTable
 
 superB_t superBlock;
 FAT_t fat;
-root_t rootDir = (root_t)malloc(sizeof(Root) * FS_FILE_MAX_COUNT);
-fdt_t fdt = (fdt_t)malloc(sizeof(FDTable) * FS_OPEN_MAX_COUNT);
+root_t rootDir;
+fdt_t fdt;
 
 int fs_mount(const char *diskname)
 {
   if (block_disk_open(diskname) == -1)
     return -1;
  
-  if (!fat.blocks)
+  if (fat.blocks)
     return -1;
 
-  for(int i = 0; i < FS_OPEN_MAX_COUNT;i++)
+  fdt = (fdt_t)malloc(sizeof(FDTable) * FS_OPEN_MAX_COUNT);
+
+  for(int i = 0; i < FS_OPEN_MAX_COUNT; i++)
   {
     fdt[i].index = -1;
     fdt[i].offset = 0;
@@ -76,13 +80,15 @@ int fs_mount(const char *diskname)
 
   fat.blocks = (fatB_t)malloc(sizeof(FATBlock) * BLOCK_SIZE);
  
-  int count = 0;
-  for (int i = 1; i <= superBlock.numFATBlocks; i++)
+  int count = 1;
+  for (int i = 0; i < superBlock.numFATBlocks; i++)
   {
-    if (block_read(i, (void*)&fat.blocks[(BLOCK_SIZE/2) * count]) == -1)
+    if (block_read(count, (void*)&fat.blocks[(BLOCK_SIZE/2) * i]) == -1)
       return -1;
     count++;
   } 
+
+  rootDir = (root_t)malloc(sizeof(Root) * FS_FILE_MAX_COUNT);
 
   if (block_read(superBlock.rootIndex, (void*)&rootDir) == -1)
     return -1;
@@ -92,33 +98,32 @@ int fs_mount(const char *diskname)
 
 int fs_umount(void)
 {
-  //chck if still open file descriptors
-  for(int i = 0; i < FS_OPEN_MAX_COUNT; i++)
-  {
-    //if a files index is not -1, the file is open 
-    if(fdt[i].index != -1)
-      return -1;
-  }
-
-  //write root directory out to disk
-  if(block_write(superBlock.rootIndex, (void*)&rootDir) == -1)
+  if(!fat.blocks)
+    return -1;
+  
+  if(block_write(0, (void*)&superBlock) == -1)
     return -1;
 
   //write blocks out to disk
-  int count = 0;
-  for(int i = 1; i <= superBlock.numFATBlocks; i++)
+  int count = 1;
+  for(int i = 0; i < superBlock.numFATBlocks; i++)
   {
-    if(block_write(i, (void*)&fat.blocks[(BLOCK_SIZE/2) * count]))
+    if(block_write(count, (void*)&fat.blocks[(BLOCK_SIZE/2) * i]))
       return -1;
     count++;
   }
+  
+  //write root directory out to disk
+  if(block_write(superBlock.rootIndex, (void*)&rootDir) == -1)
+    return -1;
 
   //check disk can be closed
   if(block_disk_close() == -1)
     return -1;
 
-  free(rootDir);
+  free(fdt);
   free(fat.blocks);
+  free(rootDir);
 
   return 0;
 }
@@ -133,8 +138,9 @@ int findFileInRootDirec(const char *filename)
   for(int i = 0; i < FS_FILE_MAX_COUNT; i++)
   {
     if(strcmp(rootDir[i].name, filename) == 0)
-      return i; 
+      return 0; 
   }
+
   return -1;
 }
 
@@ -145,26 +151,30 @@ int fs_create(const char *filename)
     return -1;
 
   //if length of filename is too long
-  if(strlen(filename) > FS_FILENAME_LEN)
+  if((strlen(filename) + 1) > FS_FILENAME_LEN) // + 1 is for the '\0'
     return -1;
 
   //if file name already exists in file directory
-  if(findFileInRootDirec(filename) == -1)
+  if(findFileInRootDirec(filename) == 0)
     return -1;
 
   //find empty entry in root directory
-  for(int i = 0; i < FS_FILE_MAX_COUNT; i++)
+  int i;
+  for(i = 0; i < FS_FILE_MAX_COUNT; i++)
   {
-    if(rootDir[i].name == NULL){
+    if(strlen(rootDir[i].name) == 0)
+    {
       strcpy(rootDir[i].name, filename);
       rootDir[i].size = 0;
-      rootDir[i].firstIndex = FAT_EOC; 
+      rootDir[i].firstIndex = FAT_EOC;
+      break;
+    }
   }
-
+  
   //if root directory is already full
-  if(i == FS_FILE_MAX_COUNT - 1)
+  if(i == (FS_FILE_MAX_COUNT - 1))
     return -1;
-
+  
   return 0;
 }
 
@@ -174,15 +184,38 @@ int fs_delete(const char *filename)
   if(filename == NULL)
     return -1;
 
+  //if length of filename is too long
+  if((strlen(filename) + 1) > FS_FILENAME_LEN) // + 1 is for the '\0'
+    return -1;
+  
   //no file in root directory to delete
   int check = findFileInRootDirec(filename);
   if(check == -1)
-    return -1;	  
-  else 
+    return -1;
+
+  int i;
+  for(i = 0; i < FS_FILE_MAX_COUNT; i++) 
   {
-    //check if file is open
-   
+    if(strcmp(rootDir[i].name, filename) == 0)
+    {
+      int dataSpot = rootDir[i].firstIndex;
+      int next;
+
+      while(fat.blocks[dataSpot].word != FAT_EOC)
+      {
+        next = fat.blocks[dataSpot].word;
+	fat.blocks[dataSpot].word = 0;
+	dataSpot = next;
+      }
+
+      break;
+    }
   } 
+
+  //if root directory is already full
+  if(i == (FS_FILE_MAX_COUNT - 1))
+    return -1;
+
   return 0;
 }
 

@@ -6,6 +6,9 @@ CC   := gcc
 CFLAGS := -Wall -Werror
 CFLAGS += -g
 
+AA      := ar
+AFLAGS  := -crs
+
 ifneq ($(V),1)
 Q = @
 endif
@@ -27,4 +30,4 @@ libfs.a : $(objs)
 
 clean :
 	@echo "clean"
-	$(Q)rm -f $(lib) $(del) $(deps)
+	$(Q)rm -f $(lib) $(objs) $(deps)
