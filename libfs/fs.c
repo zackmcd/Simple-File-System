@@ -214,10 +214,6 @@ int fs_delete(const char *filename)
     }
   } 
 
-  //if root directory is already full
-  if(i == (FS_FILE_MAX_COUNT - 1))
-    return -1;
-
   return 0;
 }
 
