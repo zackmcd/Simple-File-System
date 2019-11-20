@@ -14,7 +14,7 @@ typedef struct __attribute__ ((__packed__)) SuperBlock
   uint16_t rootIndex;
   uint16_t dataStartIndex;
   uint16_t totDataBlocks;
-  uint8_t numFATBlocks
+  uint8_t numFATBlocks;
   char padding[4079];
 }SuperBlock, superB_t;
 
@@ -34,18 +34,18 @@ typedef struct __attribute__((__packed__)) Root
   uint32_t size;
   uint16_t firstIndex;
   char padding[10];
-}Root, *root_t;
+}Root, root_t; //*root_t
 
 typedef struct FDTable
 {
   int index;
   int offset;
-}FDTable, *fdt_t;
+}FDTable, fdt_t; //*fdt_t
 
 superB_t superBlock;
 FAT_t fat;
-root_t rootDir = (root_t) malloc(sizeof(Root) * FS_FILE_MAX_COUNT);
-fdt_t fdt = (fdt_t) malloc(sizeof(FDTable) * FS_OPEN_MAX_COUNT);
+root_t rootDir[FS_FILE_MAX_COUNT];// = (root_t) malloc(sizeof(Root) * FS_FILE_MAX_COUNT);
+fdt_t fdt[FS_OPEN_MAX_COUNT];// = (fdt_t) malloc(sizeof(FDTable) * FS_OPEN_MAX_COUNT);
 
 
 int fs_mount(const char *diskname)
@@ -56,7 +56,7 @@ int fs_mount(const char *diskname)
   if (!fat.blocks)
     return -1;
 
-  for(int i = 0; i < FS_OPENMAX_COUNT;i++)
+  for(int i = 0; i < FS_OPEN_MAX_COUNT;i++)
   {
     fdt[i].index = -1;
     fdt[i].offset = 0;
@@ -94,55 +94,65 @@ int fs_umount(void)
 {
   
   free(fat.blocks);
+  return 0;
 }
 
 int fs_info(void)
 {
+  return 0;
 	/* TODO: Phase 1 */
 }
 
 int fs_create(const char *filename)
 {
+  return 0;
 	/* TODO: Phase 2 */
 }
 
 int fs_delete(const char *filename)
 {
+  return 0;
 	/* TODO: Phase 2 */
 }
 
 int fs_ls(void)
 {
+  return 0;
 	/* TODO: Phase 2 */
 }
 
 int fs_open(const char *filename)
 {
+  return 0;
 	/* TODO: Phase 3 */
 }
 
 int fs_close(int fd)
 {
+  return 0;
 	/* TODO: Phase 3 */
 }
 
 int fs_stat(int fd)
 {
+  return 0;
 	/* TODO: Phase 3 */
 }
 
 int fs_lseek(int fd, size_t offset)
 {
+  return 0;
 	/* TODO: Phase 3 */
 }
 
 int fs_write(int fd, void *buf, size_t count)
 {
+  return 0;
 	/* TODO: Phase 4 */
 }
 
 int fs_read(int fd, void *buf, size_t count)
 {
+  return 0;
 	/* TODO: Phase 4 */
 }
-
