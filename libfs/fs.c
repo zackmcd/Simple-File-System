@@ -130,6 +130,31 @@ int fs_umount(void)
 
 int fs_info(void)
 {
+  if (!fat)
+    return -1;
+
+  int fatRatio = 0;
+  int rootRatio = 0;
+
+  for (int i = 0; i < superBlock.numFATBlocks; i++)
+  {
+    
+  }
+
+  for ()
+  {
+
+  }
+
+  printf("FS Info\n");
+  printf("total_blk_count=%d", superBlock.totBlocks);
+  printf("fat_blk_count=%d", ((superBlock.totDataBlocks * 2) / BLOCK_SIZE));
+  printf("rdir_blk=%d", superBlock.rootIndex);
+  printf("data_blk=%d", superBlock.dataStartIndex);
+  printf("data_blk_count=%d", superBlock.totDataBlocks);
+  printf("fat_free_ratio=%d/%d",  (superBlock.totDataBlocks-fatRatio), superBlock.totDataBlocks);
+  prtinf("rdir_free_ratio=%d/%d", (FS_FILE_MAX_COUNT-rootRatio), FS_FILE_MAX_COUNT);
+
   return 0;
 }
 
