@@ -25,11 +25,11 @@ typedef struct __attribute__ ((__packed__)) SuperBlock
 typedef struct __attribute__ ((__packed__)) FATBlock
 {
   uint16_t word;
-}FATBlock, *fatB_t;
+}FATBlock, fatB_t; //*fatB_t;
 
-typedef struct __attribute__ ((__packed__)) FAT
+typedef struct FAT
 {
-  fatB_t blocks;
+  fatB_t blocks[sizeof(uint16_t) * BLOCK_SIZE];
 }FAT, FAT_t;
 
 typedef struct __attribute__((__packed__)) Root
@@ -38,28 +38,29 @@ typedef struct __attribute__((__packed__)) Root
   uint32_t size;
   uint16_t firstIndex;
   char padding[10];
-}Root, *root_t;
+}Root, root_t; //*root_t;
 
 typedef struct FDTable
 {
   int index;
   int offset;
-}FDTable, *fdt_t;
+}FDTable, fdt_t; //*fdt_t;
 
 superB_t superBlock;
 FAT_t fat;
-root_t rootDir;
-fdt_t fdt;
+int mounted = 0;
+root_t rootDir[FS_FILE_MAX_COUNT];
+fdt_t fdt[FS_OPEN_MAX_COUNT];
 
 int fs_mount(const char *diskname)
 {
   if (block_disk_open(diskname) == -1)
     return -1;
  
-  if (fat.blocks)
+  if (mounted)
     return -1;
 
-  fdt = (fdt_t)malloc(sizeof(FDTable) * FS_OPEN_MAX_COUNT);
+  //fdt = (fdt_t)malloc(sizeof(FDTable) * FS_OPEN_MAX_COUNT);
 
   for(int i = 0; i < FS_OPEN_MAX_COUNT; i++)
   {
@@ -67,18 +68,18 @@ int fs_mount(const char *diskname)
     fdt[i].offset = 0;
   }
 
-  char givenSig[8] = "ECS150FS";
-  
   if (block_read(0, (void *)&superBlock) == -1)
     return -1;
 
-  if (strcmp(givenSig, superBlock.sig) != 0)
+  superBlock.sig[8] = '\0';
+  if (strcmp(superBlock.sig, "ECS150FS") != 0)
     return -1;
 
+  superBlock.totBlocks = superBlock.totDataBlocks + 2 + superBlock.numFATBlocks;
   if (block_disk_count() != superBlock.totBlocks)
     return -1;
 
-  fat.blocks = (fatB_t)malloc(sizeof(FATBlock) * BLOCK_SIZE);
+  //fat.blocks = (fatB_t)malloc(sizeof(FATBlock) * BLOCK_SIZE);
  
   int count = 1;
   for (int i = 0; i < superBlock.numFATBlocks; i++)
@@ -88,17 +89,18 @@ int fs_mount(const char *diskname)
     count++;
   } 
 
-  rootDir = (root_t)malloc(sizeof(Root) * FS_FILE_MAX_COUNT);
+  //rootDir = (root_t)malloc(sizeof(Root) * FS_FILE_MAX_COUNT);
 
   if (block_read(superBlock.rootIndex, (void*)&rootDir) == -1)
     return -1;
 
+  mounted = 1;
   return 0;
 }
 
 int fs_umount(void)
 {
-  if(!fat.blocks)
+  if(!mounted)
     return -1;
   
   if(block_write(0, (void*)&superBlock) == -1)
@@ -121,39 +123,41 @@ int fs_umount(void)
   if(block_disk_close() == -1)
     return -1;
 
-  free(fdt);
-  free(fat.blocks);
-  free(rootDir);
-
+  //free(fdt);
+  //free(fat.blocks);
+  //free(rootDir);
+  mounted = 0;
   return 0;
 }
 
 int fs_info(void)
 {
-  if (!fat)
+  if (!fat.blocks)
     return -1;
 
   int fatRatio = 0;
   int rootRatio = 0;
 
-  for (int i = 0; i < superBlock.numFATBlocks; i++)
+  for (int i = 0; i < superBlock.totDataBlocks; i++)
   {
-    
+    if (fat.blocks[i].word != 0)
+      fatRatio++;  
   }
-
-  for ()
+  
+  for (int i = 0; i < FS_FILE_MAX_COUNT; i++)
   {
-
+    if (strlen(rootDir[i].name) != 0)
+      rootRatio++;
   }
 
   printf("FS Info\n");
-  printf("total_blk_count=%d", superBlock.totBlocks);
-  printf("fat_blk_count=%d", ((superBlock.totDataBlocks * 2) / BLOCK_SIZE));
-  printf("rdir_blk=%d", superBlock.rootIndex);
-  printf("data_blk=%d", superBlock.dataStartIndex);
-  printf("data_blk_count=%d", superBlock.totDataBlocks);
-  printf("fat_free_ratio=%d/%d",  (superBlock.totDataBlocks-fatRatio), superBlock.totDataBlocks);
-  prtinf("rdir_free_ratio=%d/%d", (FS_FILE_MAX_COUNT-rootRatio), FS_FILE_MAX_COUNT);
+  printf("total_blk_count=%d\n", superBlock.totBlocks);
+  printf("fat_blk_count=%d\n", ((superBlock.totDataBlocks * 2) / BLOCK_SIZE));
+  printf("rdir_blk=%d\n", superBlock.rootIndex);
+  printf("data_blk=%d\n", superBlock.dataStartIndex);
+  printf("data_blk_count=%d\n", superBlock.totDataBlocks);
+  printf("fat_free_ratio=%d/%d\n",  (superBlock.totDataBlocks-fatRatio), superBlock.totDataBlocks);
+  printf("rdir_free_ratio=%d/%d\n", (FS_FILE_MAX_COUNT-rootRatio), FS_FILE_MAX_COUNT);
 
   return 0;
 }
@@ -225,15 +229,22 @@ int fs_delete(const char *filename)
     {
       int dataSpot = rootDir[i].firstIndex;
       int next;
-
-      while(fat.blocks[dataSpot].word != FAT_EOC)
+      int end;
+      
+      while(dataSpot != FAT_EOC)
       {
+        end = dataSpot;
         next = fat.blocks[dataSpot].word;
 	fat.blocks[dataSpot].word = 0;
 	dataSpot = next;
-      }
 
-      rootDir[i].name[0] = 0; // this clears the name from the root directory
+	if (dataSpot == FAT_EOC)
+	  fat.blocks[end].word = 0;
+      }
+      
+      rootDir[i].name[0] = '\0'; // this clears the name from the root directory
+      rootDir[i].size = 0;
+      rootDir[i].firstIndex = FAT_EOC;
 
       break;
     }
@@ -244,7 +255,17 @@ int fs_delete(const char *filename)
 
 int fs_ls(void)
 {
-	/* TODO: Phase 2 */
+  if (!mounted)
+    return -1;
+
+  printf("FS Ls:\n");
+
+  for (int i = 0; i < FS_FILE_MAX_COUNT; i++)
+  {
+    if (strlen(rootDir[i].name) != 0)
+      printf("file: %s, size: %d, data_blk: %d\n", rootDir[i].name, rootDir[i].size, rootDir[i].firstIndex);
+  }
+
   return 0;
 }
 

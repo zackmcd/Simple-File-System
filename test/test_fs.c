@@ -237,7 +237,10 @@ void thread_fs_ls(void *arg)
 
 	if (fs_mount(diskname))
 		die("Cannot mount diskname");
-
+        
+	fs_create("test");
+	fs_ls();
+	fs_delete("test");
 	fs_ls();
 
 	if (fs_umount())
