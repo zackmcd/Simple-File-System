@@ -42,8 +42,9 @@ typedef struct __attribute__((__packed__)) Root
 
 typedef struct FDTable
 {
-  int index;
+  int indexInRoot;
   int offset;
+  //char name[FS_FILENAME_LEN];
 }FDTable, fdt_t;
 
 superB_t superBlock;
@@ -61,18 +62,21 @@ int fs_mount(const char *diskname)
 
   for(int i = 0; i < FS_OPEN_MAX_COUNT; i++)
   {
-    fdt[i].index = -1;
+    fdt[i].indexInRoot = -1;
     fdt[i].offset = 0;
+    //fdt[i].name[0] = '\0';
   }
 
   if (block_read(0, (void *)&superBlock) == -1)
     return -1;
-
+  
+  int temp = superBlock.totBlocks;
   superBlock.sig[8] = '\0';
   if (strcmp(superBlock.sig, "ECS150FS") != 0)
     return -1;
 
-  superBlock.totBlocks = superBlock.totDataBlocks + 2 + superBlock.numFATBlocks;
+  //superBlock.totBlocks = superBlock.totDataBlocks + 2 + superBlock.numFATBlocks;
+  superBlock.totBlocks = temp;
   if (block_disk_count() != superBlock.totBlocks)
     return -1;
 
