@@ -25,11 +25,11 @@ typedef struct __attribute__ ((__packed__)) SuperBlock
 typedef struct __attribute__ ((__packed__)) FATBlock
 {
   uint16_t word;
-}FATBlock, fatB_t; //*fatB_t;
+}FATBlock, *fatB_t;
 
 typedef struct FAT
 {
-  fatB_t blocks[sizeof(uint16_t) * BLOCK_SIZE];
+  fatB_t blocks;
 }FAT, FAT_t;
 
 typedef struct __attribute__((__packed__)) Root
@@ -38,17 +38,16 @@ typedef struct __attribute__((__packed__)) Root
   uint32_t size;
   uint16_t firstIndex;
   char padding[10];
-}Root, root_t; //*root_t;
+}Root, root_t;
 
 typedef struct FDTable
 {
   int index;
   int offset;
-}FDTable, fdt_t; //*fdt_t;
+}FDTable, fdt_t;
 
 superB_t superBlock;
 FAT_t fat;
-int mounted = 0;
 root_t rootDir[FS_FILE_MAX_COUNT];
 fdt_t fdt[FS_OPEN_MAX_COUNT];
 
@@ -57,10 +56,8 @@ int fs_mount(const char *diskname)
   if (block_disk_open(diskname) == -1)
     return -1;
  
-  if (mounted)
+  if (fat.blocks)
     return -1;
-
-  //fdt = (fdt_t)malloc(sizeof(FDTable) * FS_OPEN_MAX_COUNT);
 
   for(int i = 0; i < FS_OPEN_MAX_COUNT; i++)
   {
@@ -79,7 +76,7 @@ int fs_mount(const char *diskname)
   if (block_disk_count() != superBlock.totBlocks)
     return -1;
 
-  //fat.blocks = (fatB_t)malloc(sizeof(FATBlock) * BLOCK_SIZE);
+  fat.blocks = (fatB_t)malloc(sizeof(FATBlock) * superBlock.totDataBlocks);
  
   int count = 1;
   for (int i = 0; i < superBlock.numFATBlocks; i++)
@@ -89,18 +86,15 @@ int fs_mount(const char *diskname)
     count++;
   } 
 
-  //rootDir = (root_t)malloc(sizeof(Root) * FS_FILE_MAX_COUNT);
-
   if (block_read(superBlock.rootIndex, (void*)&rootDir) == -1)
     return -1;
 
-  mounted = 1;
   return 0;
 }
 
 int fs_umount(void)
 {
-  if(!mounted)
+  if(!fat.blocks)
     return -1;
   
   if(block_write(0, (void*)&superBlock) == -1)
@@ -123,10 +117,7 @@ int fs_umount(void)
   if(block_disk_close() == -1)
     return -1;
 
-  //free(fdt);
-  //free(fat.blocks);
-  //free(rootDir);
-  mounted = 0;
+  free(fat.blocks);
   return 0;
 }
 
@@ -255,7 +246,7 @@ int fs_delete(const char *filename)
 
 int fs_ls(void)
 {
-  if (!mounted)
+  if (!fat.blocks)
     return -1;
 
   printf("FS Ls:\n");
