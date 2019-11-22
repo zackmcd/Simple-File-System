@@ -215,7 +215,7 @@ int fs_delete(const char *filename)
   if(check == -1)
     return -1;
 
-  int dataSpot = rootDir[check].firstIndex;
+  unsigned int dataSpot = rootDir[check].firstIndex;
   int next;
   int end;
       
