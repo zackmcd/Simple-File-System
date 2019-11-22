@@ -44,7 +44,6 @@ typedef struct FDTable
 {
   int indexInRoot;
   int offset;
-  //char name[FS_FILENAME_LEN];
 }FDTable, fdt_t;
 
 superB_t superBlock;
@@ -64,7 +63,6 @@ int fs_mount(const char *diskname)
   {
     fdt[i].indexInRoot = -1;
     fdt[i].offset = 0;
-    //fdt[i].name[0] = '\0';
   }
 
   if (block_read(0, (void *)&superBlock) == -1)
@@ -75,7 +73,6 @@ int fs_mount(const char *diskname)
   if (strcmp(superBlock.sig, "ECS150FS") != 0)
     return -1;
 
-  //superBlock.totBlocks = superBlock.totDataBlocks + 2 + superBlock.numFATBlocks;
   superBlock.totBlocks = temp;
   if (block_disk_count() != superBlock.totBlocks)
     return -1;
@@ -183,20 +180,21 @@ int fs_create(const char *filename)
     return -1;
 
   //find empty entry in root directory
-  int i;
-  for(i = 0; i < FS_FILE_MAX_COUNT; i++)
+  int full = 0;
+  for(int i = 0; i < FS_FILE_MAX_COUNT; i++)
   {
     if(strlen(rootDir[i].name) == 0)
     {
       strcpy(rootDir[i].name, filename);
       rootDir[i].size = 0;
       rootDir[i].firstIndex = FAT_EOC;
+      full = 1;
       break;
     }
   }
   
   //if root directory is already full
-  if(i == (FS_FILE_MAX_COUNT - 1))
+  if(!full)
     return -1;
   
   return 0;
@@ -217,33 +215,24 @@ int fs_delete(const char *filename)
   if(check == -1)
     return -1;
 
-  int i;
-  for(i = 0; i < FS_FILE_MAX_COUNT; i++) 
+  int dataSpot = rootDir[check].firstIndex;
+  int next;
+  int end;
+      
+  while(dataSpot != FAT_EOC)
   {
-    if(strcmp(rootDir[i].name, filename) == 0)
-    {
-      int dataSpot = rootDir[i].firstIndex;
-      int next;
-      int end;
-      
-      while(dataSpot != FAT_EOC)
-      {
-        end = dataSpot;
-        next = fat.blocks[dataSpot].word;
-	fat.blocks[dataSpot].word = 0;
-	dataSpot = next;
+    end = dataSpot;
+    next = fat.blocks[dataSpot].word;
+    fat.blocks[dataSpot].word = 0;
+    dataSpot = next;
 
-	if (dataSpot == FAT_EOC)
-	  fat.blocks[end].word = 0;
-      }
+    if (dataSpot == FAT_EOC)
+      fat.blocks[end].word = 0;
+  }
       
-      rootDir[i].name[0] = '\0'; // this clears the name from the root directory
-      rootDir[i].size = 0;
-      rootDir[i].firstIndex = FAT_EOC;
-
-      break;
-    }
-  } 
+  rootDir[check].name[0] = '\0'; // this clears the name from the root directory
+  rootDir[check].size = 0;
+  rootDir[check].firstIndex = FAT_EOC;
 
   return 0;
 }
@@ -266,25 +255,75 @@ int fs_ls(void)
 
 int fs_open(const char *filename)
 {
-	/* TODO: Phase 3 */
-  return 0;
+  if (filename == NULL)
+    return -1;
+
+  if (sizeof(filename) > FS_FILENAME_LEN)
+    return -1;
+
+  int check = findFileInRootDirec(filename);
+  if (check == -1)
+    return -1;
+
+  int full = 0;
+  int i;
+  for (i = 0; i < FS_OPEN_MAX_COUNT; i++)
+  {
+    if (fdt[i].indexInRoot == -1)
+    {
+      fdt[i].indexInRoot = check;
+      fdt[i].offset = 0;
+      full = 1;
+      break;
+    }
+  }
+
+  if (!full)
+    return -1;
+
+  return i;
 }
 
 int fs_close(int fd)
 {
-	/* TODO: Phase 3 */
+  if (fd < 0 || fd > 31)
+    return -1;
+
+  if (fdt[fd].indexInRoot == -1)
+    return -1;
+
+  fdt[fd].indexInRoot = -1;
+  fdt[fd].offset = 0;
+
   return 0;
 }
 
 int fs_stat(int fd)
 {
-	/* TODO: Phase 3 */
-  return 0;
+  if (fd < 0 || fd > 31)
+    return -1;
+
+  if (fdt[fd].indexInRoot == -1)
+    return -1;
+
+  int result = rootDir[fdt[fd].indexInRoot].size;
+
+  return result;
 }
 
 int fs_lseek(int fd, size_t offset)
 {
-	/* TODO: Phase 3 */
+  if (fd < 0 || fd > 31)
+    return -1;
+
+  if (fdt[fd].indexInRoot == -1)
+    return -1;
+
+  if (offset > fs_stat(fd) || offset < 0)
+    return -1;
+
+  fdt[fd].offset = offset;
+
   return 0;
 }
 
