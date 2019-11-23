@@ -350,7 +350,6 @@ int fs_read(int fd, void *buf, size_t count)
   char *block = (char*) malloc(sizeof(char) * BLOCK_SIZE);
   unsigned int totalRead = 0;
   unsigned int offset = fdt[fd].offset;
-  //offset = 5000;
   unsigned int limit = fs_stat(fd);
   unsigned int start = superBlock.dataStartIndex;
   unsigned int fileStartIndex = rootDir[fdt[fd].indexInRoot].firstIndex;
@@ -430,11 +429,17 @@ int fs_read(int fd, void *buf, size_t count)
     block_read((start + fileStartIndex), block);
     block = block + offset;
     memcpy(buf, block, count);
-    
+
     if (limit <= count)
+    {
+      buf = buf + limit;
       totalRead = limit;
+    }
     else
+    {
+      buf = buf + count;
       totalRead = count; 
+    }
   }
 
   //free(block);

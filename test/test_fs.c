@@ -114,7 +114,8 @@ void thread_fs_cat(void *arg)
 		return;
 	}
 	
-	//stat = 893;
+	//stat = 3;
+	//fs_lseek(fs_fd, 1);
 	buf = malloc(stat);
 	if (!buf) {
 		perror("malloc");
