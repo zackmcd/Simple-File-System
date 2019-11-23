@@ -329,8 +329,28 @@ int fs_lseek(int fd, size_t offset)
 
 int fs_write(int fd, void *buf, size_t count)
 {
-	/* TODO: Phase 4 */
-  return 0;
+  if (fd < 0 || fd > 31)
+    return -1;
+
+  if (fdt[fd].indexInRoot == -1)
+    return -1;
+
+  if (fdt[fd].offset > fs_stat(fd) || fdt[fd].offset < 0)
+    return -1;
+
+  if (fdt[fd].offset == BLOCK_SIZE && rootDir[fdt[fd].indexInRoot].firstIndex == FAT_EOC)
+    return 0;
+
+  //char *block = (char*) malloc(sizeof(char) * BLOCK_SIZE);
+  unsigned int totalWrite = 0;
+  /*unsigned int offset = fdt[fd].offset;
+  unsigned int limit = fs_stat(fd);
+  unsigned int start = superBlock.dataStartIndex;
+  unsigned int fileStartIndex = rootDir[fdt[fd].indexInRoot].firstIndex;
+  */
+  
+
+  return totalWrite;
 }
 
 int fs_read(int fd, void *buf, size_t count)
@@ -401,11 +421,11 @@ int fs_read(int fd, void *buf, size_t count)
      
       unsigned int currIndex = fileStartIndex;
       
-      if(leftOver != 0) // was a while loop
+      while(leftOver != 0)
       {
         currIndex = fat.blocks[currIndex].word;
-	//if (currIndex == FAT_EOC)
-        //  break;
+	if (currIndex == FAT_EOC)
+          break;
 
 	block_read((start + currIndex), block);
         
@@ -415,12 +435,13 @@ int fs_read(int fd, void *buf, size_t count)
 	  totalRead = totalRead + leftOver;
           leftOver = 0;
         }
-	//else
-	//{
-        //  memcpy(buf, block, BLOCK_SIZE);
-	//  leftOver = leftOver - BLOCK_SIZE;
-	//  totalRead = totalRead + BLOCK_SIZE;
-	//}
+	else
+	{
+          memcpy(buf, block, BLOCK_SIZE);
+	  buf = buf + BLOCK_SIZE;
+	  leftOver = leftOver - BLOCK_SIZE;
+	  totalRead = totalRead + BLOCK_SIZE;
+	}
       }  
     }
   }
