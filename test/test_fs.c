@@ -113,6 +113,8 @@ void thread_fs_cat(void *arg)
 		printf("Empty file\n");
 		return;
 	}
+	
+	//stat = 893;
 	buf = malloc(stat);
 	if (!buf) {
 		perror("malloc");

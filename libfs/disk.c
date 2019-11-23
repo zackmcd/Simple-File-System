@@ -117,11 +117,13 @@ int block_write(size_t block, const void *buf)
 int block_read(size_t block, void *buf)
 {
 	if (disk.fd == INVALID_FD) {
+		printf("woohoo1\n");
 		block_error("no disk currently open");
 		return -1;
 	}
 
 	if (block >= disk.bcount) {
+		printf("woohoo2\n");
 		block_error("block index out of bounds (%zu/%zu)",
 			    block, disk.bcount);
 		return -1;
@@ -129,12 +131,14 @@ int block_read(size_t block, void *buf)
 
 	/* Move to the specified block number */
 	if (lseek(disk.fd, block * BLOCK_SIZE, SEEK_SET) < 0) {
+		printf("woohoo3\n");
 		perror("lseek");
 		return -1;
 	}
 
 	/* Perform the actual read from the disk image */
 	if (read(disk.fd, buf, BLOCK_SIZE) < 0) {
+		printf("woohoo4\n");
 		perror("read");
 		return -1;
 	}

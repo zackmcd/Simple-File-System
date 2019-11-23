@@ -42,8 +42,8 @@ typedef struct __attribute__((__packed__)) Root
 
 typedef struct FDTable
 {
-  int indexInRoot;
-  int offset;
+  unsigned int indexInRoot;
+  unsigned int offset;
 }FDTable, fdt_t;
 
 superB_t superBlock;
@@ -335,7 +335,109 @@ int fs_write(int fd, void *buf, size_t count)
 
 int fs_read(int fd, void *buf, size_t count)
 {
-	/* TODO: Phase 4 */
-  return 0;
-}
+  if (fd < 0 || fd > 31)
+    return -1;
 
+  if (fdt[fd].indexInRoot == -1)
+    return -1;
+
+  if (fdt[fd].offset > fs_stat(fd) || fdt[fd].offset < 0)
+    return -1;
+
+  if (fdt[fd].offset == BLOCK_SIZE && rootDir[fdt[fd].indexInRoot].firstIndex == FAT_EOC)
+    return 0;
+
+  char *block = (char*) malloc(sizeof(char) * BLOCK_SIZE);
+  unsigned int totalRead = 0;
+  unsigned int offset = fdt[fd].offset;
+  //offset = 5000;
+  unsigned int limit = fs_stat(fd);
+  unsigned int start = superBlock.dataStartIndex;
+  unsigned int fileStartIndex = rootDir[fdt[fd].indexInRoot].firstIndex;
+
+  if (limit > BLOCK_SIZE) // the file size if greater that 1 block
+  {
+    //printf("%ld %ld %d %ld\n", start, fileStartIndex, offset, count);
+    if (offset + count <= BLOCK_SIZE)
+    {
+      block_read((start + fileStartIndex), block);
+      block = block + offset;
+      memcpy(buf, block, count);
+      totalRead = count;
+    }
+    else
+    {
+      unsigned int tempOffset = offset % BLOCK_SIZE;
+      if (tempOffset > 0)
+      {
+        unsigned int move = offset / BLOCK_SIZE;
+	unsigned int temp = fileStartIndex;
+        for (int i = 0; i < move; i++)
+        {
+          temp = fat.blocks[temp].word;
+          if (i == (move - 1))
+	    fileStartIndex = temp;
+        }
+	offset = tempOffset;
+      }
+
+      block_read((start + fileStartIndex), block);
+      block = block + offset;
+      
+      unsigned int leftOver;
+      if (offset == 0)
+      {
+	leftOver = count - BLOCK_SIZE;
+        totalRead = BLOCK_SIZE;
+        memcpy(buf, block, BLOCK_SIZE);
+        buf = buf + BLOCK_SIZE;
+      }
+      else
+      {
+	leftOver = 0;
+        totalRead = count;
+        memcpy(buf, block, count);
+        buf = buf + count;
+      }
+     
+      unsigned int currIndex = fileStartIndex;
+      
+      if(leftOver != 0) // was a while loop
+      {
+        currIndex = fat.blocks[currIndex].word;
+	//if (currIndex == FAT_EOC)
+        //  break;
+
+	block_read((start + currIndex), block);
+        
+	if (leftOver <= BLOCK_SIZE)
+        {
+	  memcpy(buf, block, leftOver);
+	  totalRead = totalRead + leftOver;
+          leftOver = 0;
+        }
+	//else
+	//{
+        //  memcpy(buf, block, BLOCK_SIZE);
+	//  leftOver = leftOver - BLOCK_SIZE;
+	//  totalRead = totalRead + BLOCK_SIZE;
+	//}
+      }  
+    }
+  }
+  else // the file size is less that the block size
+  {
+    block_read((start + fileStartIndex), block);
+    block = block + offset;
+    memcpy(buf, block, count);
+    
+    if (limit <= count)
+      totalRead = limit;
+    else
+      totalRead = count; 
+  }
+
+  //free(block);
+  fdt[fd].offset = fdt[fd].offset + totalRead;
+  return totalRead;
+}
