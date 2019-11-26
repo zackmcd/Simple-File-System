@@ -448,7 +448,7 @@ int fs_write(int fd, void *buf, size_t count)
     }  
   }
 
-  //free(block);
+  free(block);
   fdt[fd].offset = fdt[fd].offset + totalWrite; // changes offset to new spot
 
   return totalWrite;
@@ -563,7 +563,7 @@ int fs_read(int fd, void *buf, size_t count)
     }
   }
 
-  //free(block);
+  free(block);
   fdt[fd].offset = fdt[fd].offset + totalRead;
   return totalRead;
 }
